@@ -40,7 +40,7 @@ index f1771c3..f752ee9 100644
 --- a/client3.py
 +++ b/client3.py
 @@ -31,18 +31,18 @@ N = 500
-
+ 
  def getDataPoint(quote):
  	""" Produce all of the needed values to generate a datapoint """
 -	""" ------------- Update this function ------------- """
@@ -50,7 +50,7 @@ index f1771c3..f752ee9 100644
 -	price = bid_price
 +	price = (bid_price + ask_price) / 2;
  	return stock, bid_price, ask_price, price
-
+ 
  def getRatio(price_a, price_b):
  	""" Get ratio of price_a and price_b """
 -	""" ------------- Update this function ------------- """
@@ -59,21 +59,21 @@ index f1771c3..f752ee9 100644
 +	if price_b == 0:
 +		return
 +	return price_a / price_b;
-
+ 
  # Main
  if __name__ == "__main__":
 @@ -52,8 +52,10 @@ if __name__ == "__main__":
  		quotes = json.loads(urllib.request.urlopen(QUERY.format(random.random())).read())
-
+ 
  		""" ----------- Update to get the ratio --------------- """
 +		prices = {};
  		for quote in quotes:
  			stock, bid_price, ask_price, price = getDataPoint(quote)
 +			prices[stock] = price;
  			print ("Quoted %s at (bid:%s, ask:%s, price:%s)" % (stock, bid_price, ask_price, price))
-
+ 
 -		print ("Ratio %s" % getRatio(price, price))
-+		print ("Ratio %s" % (getRatio(prices['ABC'], prices['DEF'])))
++		print ("Ratio %s" % getRatio(price['ABC'], price['DEF']))
 diff --git a/client_test.py b/client_test.py
 index af2bf26..caa2179 100644
 --- a/client_test.py
@@ -83,7 +83,7 @@ index af2bf26..caa2179 100644
 -from client3 import getDataPoint
 +from client3 import getDataPoint, getRatio
 +from client3 import getRatio
-
+ 
  class ClientTest(unittest.TestCase):
    def test_getDataPoint_calculatePrice(self):
 @@ -7,19 +8,34 @@ class ClientTest(unittest.TestCase):
@@ -95,8 +95,8 @@ index af2bf26..caa2179 100644
 +    for quote in quotes:
 +      expected = (quote['stock'], quote['top_bid']['price'], quote['top_ask']['price'], (quote['top_bid']['price'] + quote['top_ask']['price']) / 2)
 +      self.assertEqual(getDataPoint(quote), expected)
-+
-
++    
+ 
    def test_getDataPoint_calculatePriceBidGreaterThanAsk(self):
      quotes = [
        {'top_ask': {'price': 119.2, 'size': 36}, 'timestamp': '2019-02-11 22:06:30.572453', 'top_bid': {'price': 120.48, 'size': 109}, 'id': '0.109974697771', 'stock': 'ABC'},
@@ -107,22 +107,23 @@ index af2bf26..caa2179 100644
 +      expected = (quote['stock'], quote['top_bid']['price'], quote['top_ask']['price'], (quote['top_bid']['price'] + quote['top_ask']['price']) / 2)
 +      self.assertEquals(getDataPoint(quote), expected)
 +
-
+ 
 +  def test_getRatio_basic(self):
 +    price_a = 121.68
 +    price_b = 121.20
-
+ 
 -  """ ------------ Add more unit tests ------------ """
 +    expected = price_a / price_b
 +    self.assertEqual(getRatio(price_a, price_b), expected)
-
+ 
 +  def test_getRatio_zero_divisor(self):
 +    price_a = 121.68
 +    price_b = 0
-
+ 
 +    self.assertIsNone(getRatio(price_a, price_b))
-
+ 
  if __name__ == '__main__':
      unittest.main()
---
+-- 
 2.15.0
+
