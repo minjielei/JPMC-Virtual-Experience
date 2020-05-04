@@ -9,4 +9,3 @@ A trader from the equities team has requested functionality be added to their da
 * Implement the Perspective open source code in preparation for data visualization
 * Use Perspective to create the chart for the trader's dashboard
 * Make a contribution to perspective or other project backlogs
-
