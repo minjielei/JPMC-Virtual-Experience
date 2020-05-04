@@ -18,7 +18,7 @@
 #  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 #  DEALINGS IN THE SOFTWARE.
 
-from itertools import izip
+#from itertools import izip
 from random    import normalvariate, random
 from datetime  import timedelta, datetime
 
@@ -31,8 +31,9 @@ import json
 import re
 import threading
 
-from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
-from SocketServer   import ThreadingMixIn
+#from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
+import http.server
+from socketserver   import ThreadingMixIn
 
 ################################################################################
 #
@@ -69,7 +70,7 @@ def market(t0 = MARKET_OPEN):
     """ Generates a random series of market conditions,
         (time, price, spread).
     """
-    for hours, px, spd in izip(bwalk(*FREQ), bwalk(*PX), bwalk(*SPD)):
+    for hours, px, spd in zip(bwalk(*FREQ), bwalk(*PX), bwalk(*SPD)):
         yield t0, px, spd
         t0 += timedelta(hours = abs(hours))
 
@@ -151,7 +152,7 @@ def generate_csv():
 
 def read_csv():
     """ Read a CSV or order history into a list. """
-    with open('test.csv', 'rb') as f:
+    with open('test.csv', 'rt') as f:
         for time, stock, side, order, size in csv.reader(f):
             yield dateutil.parser.parse(time), stock, side, float(order), int(size)
 
@@ -159,7 +160,7 @@ def read_csv():
 #
 # Server
 
-class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+class ThreadedHTTPServer(ThreadingMixIn, http.server.HTTPServer):
     """ Boilerplate class for a multithreaded HTTP Server, with working
         shutdown.
     """
@@ -167,7 +168,7 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     def shutdown(self):
         """ Override MRO to shutdown properly. """
         self.socket.close()
-        HTTPServer.shutdown(self)
+        http.server.HTTPServer.shutdown(self)
 
 def route(path):
     """ Decorator for a simple bottle-like web framework.  Routes path to the
@@ -189,7 +190,7 @@ def read_params(path):
 
 def get(req_handler, routes):
     """ Map a request to the appropriate route of a routes instance. """
-    for name, handler in routes.__class__.__dict__.iteritems():
+    for name, handler in routes.__class__.__dict__.items():
         if hasattr(handler, "__route__"):
             if None != re.search(handler.__route__, req_handler.path):
                 req_handler.send_response(200)
@@ -198,14 +199,14 @@ def get(req_handler, routes):
                 req_handler.end_headers()
                 params = read_params(req_handler.path)
                 data = json.dumps(handler(routes, params)) + '\n'
-                req_handler.wfile.write(data)
+                req_handler.wfile.write(bytes(data,  encoding = 'utf-8'))
                 return
 
 def run(routes, host = '0.0.0.0', port = 8080):
     """ Runs a class as a server whose methods have been decorated with
         @route.
     """
-    class RequestHandler(BaseHTTPRequestHandler):
+    class RequestHandler(http.server.BaseHTTPRequestHandler):
         def log_message(self, *args, **kwargs):
             pass
         def do_GET(self):
@@ -214,7 +215,7 @@ def run(routes, host = '0.0.0.0', port = 8080):
     thread = threading.Thread(target = server.serve_forever)
     thread.daemon = True
     thread.start()
-    print 'HTTP server started on port 8080'
+    print ('HTTP server started on port 8080')
     while True:
         from time import sleep
         sleep(1)
@@ -240,7 +241,7 @@ class App(object):
         self._data_1    = order_book(read_csv(), self._book_1, 'ABC')
         self._data_2    = order_book(read_csv(), self._book_2, 'DEF')
         self._rt_start = datetime.now()
-        self._sim_start, _, _  = self._data_1.next()
+        self._sim_start, _, _  = next(self._data_1)
         self.read_10_first_lines()
 
     @property
@@ -262,9 +263,9 @@ class App(object):
                 yield t, bids, asks
 
     def read_10_first_lines(self):
-            for _ in xrange(10):
-                self._data_1.next()
-                self._data_2.next()
+            for _ in iter(range(10)):
+                next(self._data_1)
+                next(self._data_2)
 
     @route('/query')
     def handle_query(self, x):
@@ -272,15 +273,15 @@ class App(object):
             best bid and ask and their sizes
         """
         try:
-            t1, bids1, asks1 = self._current_book_1.next()
-            t2, bids2, asks2 = self._current_book_2.next()
+            t1, bids1, asks1 = next(self._current_book_1)
+            t2, bids2, asks2 = next(self._current_book_2)
         except Exception as e:
-            print "error getting stocks...reinitalizing app"
+            print ("error getting stocks...reinitalizing app")
             self.__init__()
-            t1, bids1, asks1 = self._current_book_1.next()
-            t2, bids2, asks2 = self._current_book_2.next()
+            t1, bids1, asks1 = next(self._current_book_1)
+            t2, bids2, asks2 = next(self._current_book_2)
         t = t1 if t1 > t2 else t2
-        print 'Query received @ t%s' % t
+        print ('Query received @ t%s' % t)
         return [{
             'id': x and x.get('id', None),
             'stock': 'ABC',
@@ -314,6 +315,6 @@ class App(object):
 
 if __name__ == '__main__':
     if not os.path.isfile('test.csv'):
-        print "No data found, generating..."
+        print ("No data found, generating...")
         generate_csv()
     run(App())
