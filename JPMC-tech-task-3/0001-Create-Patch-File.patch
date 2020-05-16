@@ -1,0 +1,123 @@
+From 8904aea7503d1de501229b195bd96d8dc94a4143 Mon Sep 17 00:00:00 2001
+From: Minjie Lei <minjie5p@gmail.com>
+Date: Sat, 16 May 2020 17:17:32 -0400
+Subject: [PATCH] Create Patch File
+
+---
+ JPMC-tech-task-3/src/DataManipulator.ts | 35 +++++++++++++++++++++++----------
+ JPMC-tech-task-3/src/Graph.tsx          | 29 +++++++++++++++++----------
+ 2 files changed, 44 insertions(+), 20 deletions(-)
+
+diff --git a/JPMC-tech-task-3/src/DataManipulator.ts b/JPMC-tech-task-3/src/DataManipulator.ts
+index f6b15ffd..f2d06b1b 100644
+--- a/JPMC-tech-task-3/src/DataManipulator.ts
++++ b/JPMC-tech-task-3/src/DataManipulator.ts
+@@ -1,20 +1,35 @@
+ import { ServerRespond } from './DataStreamer';
+ 
+ export interface Row {
+-  stock: string,
+-  top_ask_price: number,
++  // Updated the row interface to match the updated schema in Graph.tsx
++  price_abc: number,
++  price_def: number,
++  ratio: number,
+   timestamp: Date,
++  upper_bound: number,
++  lower_bound: number,
++  trigger_alert: number | undefined,
+ }
+ 
+ 
+ export class DataManipulator {
+-  static generateRow(serverResponds: ServerRespond[]): Row[] {
+-    return serverResponds.map((el: any) => {
+-      return {
+-        stock: el.stock,
+-        top_ask_price: el.top_ask && el.top_ask.price || 0,
+-        timestamp: el.timestamp,
+-      };
+-    })
++  static generateRow(serverRespond: ServerRespond[]): Row {
++    const priceABC = (serverRespond[0].top_ask.price + serverRespond[0].top_bid.price) / 2; 
++    const priceDEF = (serverRespond[1].top_ask.price + serverRespond[1].top_bid.price) / 2; 
++    const ratio = priceABC / priceDEF;
++    // Set upper and lower bound for trigger alert to be +/- 6% of the 
++    // 12 month historical average ratio
++    const upperBound = 1 + 0.06;
++    const lowerBound = 1 - 0.06;
++    return {
++      price_abc: priceABC,
++      price_def: priceDEF,
++      ratio,
++      timestamp: serverRespond[0].timestamp > serverRespond[1].timestamp ?
++        serverRespond[0].timestamp : serverRespond[1].timestamp,
++      upper_bound: upperBound,
++      lower_bound: lowerBound,
++      trigger_alert: (ratio < lowerBound || ratio > upperBound) ? ratio : undefined,
++    }
+   }
+ }
+diff --git a/JPMC-tech-task-3/src/Graph.tsx b/JPMC-tech-task-3/src/Graph.tsx
+index 58fb9976..dce27f20 100644
+--- a/JPMC-tech-task-3/src/Graph.tsx
++++ b/JPMC-tech-task-3/src/Graph.tsx
+@@ -22,11 +22,16 @@ class Graph extends Component<IProps, {}> {
+     // Get element from the DOM.
+     const elem = document.getElementsByTagName('perspective-viewer')[0] as unknown as PerspectiveViewerElement;
+ 
++    // changed schema object to set up ratio vs time graph with lower and upper bound
++    // and trigger alert when one of the bound is crossed
+     const schema = {
+-      stock: 'string',
+-      top_ask_price: 'float',
+-      top_bid_price: 'float',
++      price_abc: 'float',
++      price_def: 'float',
++      ratio: 'float',
+       timestamp: 'date',
++      upper_bound: 'float',
++      lower_bound: 'float',
++      trigger_alert: 'float',
+     };
+ 
+     if (window.perspective && window.perspective.worker()) {
+@@ -35,24 +40,28 @@ class Graph extends Component<IProps, {}> {
+     if (this.table) {
+       // Load the `table` in the `<perspective-viewer>` DOM reference.
+       elem.load(this.table);
++      // changed element attributes to display ratio graph
+       elem.setAttribute('view', 'y_line');
+-      elem.setAttribute('column-pivots', '["stock"]');
+       elem.setAttribute('row-pivots', '["timestamp"]');
+-      elem.setAttribute('columns', '["top_ask_price"]');
++      elem.setAttribute('columns', '["ratio", "lower_bound", "upper_bound", "trigger_alert"]');
+       elem.setAttribute('aggregates', JSON.stringify({
+-        stock: 'distinctcount',
+-        top_ask_price: 'avg',
+-        top_bid_price: 'avg',
++        price_abc: 'avg',
++        price_def: 'avg',
++        ratio: 'avg',
+         timestamp: 'distinct count',
++        upper_bound: 'avg',
++        lower_bound: 'avg',
++        trigger_alert: 'avg',
+       }));
+     }
+   }
+ 
+   componentDidUpdate() {
+     if (this.table) {
+-      this.table.update(
++      // changed return value of generateRow to a single row object
++      this.table.update([
+         DataManipulator.generateRow(this.props.data),
+-      );
++      ]);
+     }
+   }
+ }
+-- 
+2.15.0
+
