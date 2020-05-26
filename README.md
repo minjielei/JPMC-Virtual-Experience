@@ -9,3 +9,7 @@ A trader from the equities team has requested functionality be added to their da
 * Implement the Perspective open source code in preparation for data visualization
 * Use Perspective to create the chart for the trader's dashboard
 * Make a contribution to perspective or other project backlogs
+
+## Product
+Built a client-side web application using Python, React, Typescript, and Perspective that displays a live graph of stock trends and alerts traders of potential trading opportunities in a simple and visually clear way
+![price_trend_graph](images/price_web_app.png)
