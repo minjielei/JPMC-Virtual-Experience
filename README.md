@@ -12,4 +12,4 @@ A trader from the equities team has requested functionality be added to their da
 
 ## Product
 Built a client-side web application using Python, React, Typescript, and Perspective that displays a live graph of stock trends and alerts traders of potential trading opportunities in a simple and visually clear way
-![price_trend_graph](images/price_web_app.png)
+![price_trend_graph](images/price_ratio_graph.png)
